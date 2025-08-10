@@ -597,8 +597,8 @@ export default function AdminPanel() {
             </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+{/* make it responsive */}
+        <div className="grid grid-cols-1  md:grid-cols-2 lg:grid-cols-6 gap-6">
           <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow duration-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
