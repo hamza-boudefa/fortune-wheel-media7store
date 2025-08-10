@@ -140,7 +140,10 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
     try {
       const response = await fetch(`/api/user-stats/${userId}`)
       const data = await response.json()
-      setPlayCount(data.playCount || 0)
+      console.log("Fetching play count for user", userId, "Response:", data)
+      const playCountValue = data.stats?.playCount || 0
+      console.log("Setting play count to:", playCountValue)
+      setPlayCount(playCountValue)
     } catch (error) {
       console.error("Error fetching play count:", error)
     }
@@ -715,15 +718,13 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
             body: JSON.stringify({ userId, prizeId: selectedSegment.id }),
           })
           if (response.ok) {
-            setPlayCount((prev) => prev + 1)
+            await fetchPlayCount() // Refresh play count from database
             onWin(selectedSegment)
-            await fetchAvailablePrizes()
           } else {
             const errorData = await response.json()
             console.error("Error recording win:", errorData.error)
-            if (errorData.error?.includes("غير متوفرة") || errorData.error?.includes("نفدت الكمية")) {
-              alert("عذراً، هذه الجائزة لم تعد متوفرة. يرجى المحاولة مرة أخرى.")
-              await fetchAvailablePrizes()
+            if (errorData.error?.includes("non disponible")) {
+              alert("Désolé, ce prix n'est plus disponible. Veuillez réessayer.")
             }
           }
         } catch (error) {
@@ -770,7 +771,7 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
           <p className="text-red-700 text-lg font-medium">Tournez la roue et gagnez des prix fantastiques!</p>
           <div className="flex justify-center items-center gap-2 mt-4">
             <Star className="w-4 h-4 text-red-600" />
-            <span className="text-red-600 font-medium">Parties jouées: {playCount}</span>
+            <span className="text-red-600 font-medium">Tirages gagnés: {playCount}</span>
             <Star className="w-4 h-4 text-red-600" />
           </div>
         </CardHeader>
@@ -851,7 +852,7 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
                       Rotation en cours...
                     </>
                   ) : showCelebration ? (
-                    <>🎉 Félicitations! Vous avez gagné: {wonPrize}! 🎉</>
+                    <>🎉 Félicitations! Vous êtes inscrit au tirage pour: {wonPrize}! 🎉</>
                   ) : showSpinAgain ? (
                     <>🎯 {spinAgainMessage} Cliquez pour tourner à nouveau!</>
                   ) : (

@@ -314,33 +314,31 @@ export async function deletePrize(id: number): Promise<void> {
 
 export async function addWinner(userId: number, prizeId: number): Promise<Winner> {
   try {
-    console.log("Adding winner:", { userId, prizeId })
+    console.log("Adding winner to draw list:", { userId, prizeId })
 
-    // Decrease quantity atomically; prevent negative
+    // Check if prize exists and is active (but don't check quantity)
     const prizeResult = await sql`
-      UPDATE prizes
-      SET quantity = quantity - 1
-      WHERE id = ${prizeId} AND quantity > 0
-      RETURNING *
+      SELECT * FROM prizes
+      WHERE id = ${prizeId} AND is_active = true
     `
     if (prizeResult.length === 0) {
-      throw new Error("Prix non disponible ou quantité épuisée")
+      throw new Error("Prix non disponible")
     }
 
+    // Add user to winners table (enters draw list) - NO quantity reduction
     const result = await sql`
       INSERT INTO winners (user_id, prize_id)
       VALUES (${userId}, ${prizeId})
       RETURNING *
     `
-    console.log("Winner added successfully:", result[0])
-    console.log("Prize quantity updated:", prizeResult[0].quantity)
+    console.log("Winner added to draw list successfully:", result[0])
     return result[0] as Winner
   } catch (error) {
-    console.error("Error adding winner:", error)
-    if (error instanceof Error && error.message.includes("Prix non disponible ou quantité épuisée")) {
+    console.error("Error adding winner to draw list:", error)
+    if (error instanceof Error && error.message.includes("Prix non disponible")) {
       throw error
     }
-    throw new Error("Échec de l'enregistrement de la victoire")
+    throw new Error("Échec de l'enregistrement dans la liste de tirage")
   }
 }
 
@@ -400,9 +398,25 @@ export async function setFinalWinner(winnerId: number): Promise<void> {
       throw new Error(`Impossible d'ajouter plus de gagnants finaux. La limite maximale est de ${winner.quantity} gagnants`)
     }
     
-    // Set the winner as final winner
-    await sql`UPDATE winners SET is_final_winner = true WHERE id = ${winnerId}`
-    console.log("Final winner set successfully")
+    // Set the winner as final winner AND reduce prize quantity
+    await sql`
+      UPDATE winners SET is_final_winner = true WHERE id = ${winnerId}
+    `
+    
+    // Reduce prize quantity when admin makes final draw
+    const prizeUpdateResult = await sql`
+      UPDATE prizes
+      SET quantity = quantity - 1
+      WHERE id = ${winner.prize_id} AND quantity > 0
+      RETURNING quantity
+    `
+    
+    if (prizeUpdateResult.length === 0) {
+      throw new Error("Impossible de réduire la quantité du prix")
+    }
+    
+    console.log("Final winner set successfully and prize quantity reduced")
+    console.log("Remaining prize quantity:", prizeUpdateResult[0].quantity)
   } catch (error) {
     console.error("Error setting final winner:", error)
     throw new Error("Échec de la désignation du gagnant final")
@@ -452,17 +466,17 @@ export async function getAdminStats(): Promise<AdminStats> {
 
 export async function getAvailablePrizes(): Promise<Prize[]> {
   try {
-    console.log("Fetching available prizes (quantity > 0)...")
+    console.log("Fetching all active prizes for wheel...")
     const result = await sql`
       SELECT * FROM prizes
-      WHERE is_active = true AND quantity > 0
+      WHERE is_active = true
       ORDER BY probability DESC
     `
-    console.log("Available prizes fetched:", result.length)
+    console.log("Active prizes fetched:", result.length)
     return result as Prize[]  
   } catch (error) {
-    console.error("Error getting available prizes:", error)
-    throw new Error("Échec de la récupération des prix disponibles")
+    console.error("Error getting active prizes:", error)
+    throw new Error("Échec de la récupération des prix actifs")
   }
 }
 
