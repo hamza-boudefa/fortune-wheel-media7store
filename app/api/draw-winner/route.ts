@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "معرف الفائز مطلوب",
+          error: "ID du gagnant requis",
         },
         { status: 400 },
       )
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "خطأ في سحب الفائز",
+        error: error instanceof Error ? error.message : "Erreur lors du tirage au sort",
       },
       { status: 500 },
     )

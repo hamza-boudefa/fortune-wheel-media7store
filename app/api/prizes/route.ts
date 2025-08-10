@@ -1,50 +1,71 @@
-import { NextResponse } from "next/server"
-import { getActivePrizes, testConnection } from "@/lib/db"
+export const dynamic = "force-dynamic"
 
-export async function GET() {
+import { type NextRequest, NextResponse } from "next/server"
+import { getAllPrizes, createPrize } from "@/lib/db"
+
+export async function GET(request: NextRequest) {
   try {
-    console.log("=== Get Prizes API Called ===")
+    console.log("=== Get All Prizes API Called ===")
 
-    // Test database connection and initialize tables
-    console.log("Testing database connection and initializing tables...")
-    const isConnected = await testConnection()
-    if (!isConnected) {
-      console.error("Database connection or initialization failed")
-      return NextResponse.json(
-        {
-          success: false,
-          error: "خطأ في الاتصال بقاعدة البيانات أو إنشاء الجداول",
-          prizes: [],
-        },
-        { status: 500 },
-      )
-    }
-    console.log("Database connection and initialization successful")
+    const prizes = await getAllPrizes()
 
-    const prizes = await getActivePrizes()
-    console.log("Returning prizes:", prizes.length)
-
+    console.log("Prizes fetched successfully:", prizes.length)
     return NextResponse.json({
       success: true,
       prizes: prizes,
     })
   } catch (error) {
-    console.error("=== Get Prizes Error ===")
+    console.error("=== Get All Prizes Error ===")
     console.error("Error:", error)
-    console.error("Stack:", error instanceof Error ? error.stack : "No stack trace")
-
-    let errorMessage = "خطأ في جلب الجوائز"
-    if (error instanceof Error && error.message.includes("relation") && error.message.includes("does not exist")) {
-      errorMessage = "خطأ في إعداد قاعدة البيانات. يرجى المحاولة مرة أخرى."
-    }
 
     return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        prizes: [],
-      },
+      { success: false, error: "Échec de la récupération des prix", prizes: [] },
       { status: 500 },
     )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log("=== Create Prize API Called ===")
+    const body = await request.json()
+    console.log("Create prize request body:", body)
+
+    const { name, probability, quantity, is_active } = body
+
+    // Validate required fields
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      return NextResponse.json({ success: false, error: "Nom requis" }, { status: 400 })
+    }
+
+    // Validate probability
+    const parsedProbability = Number(probability)
+    if (isNaN(parsedProbability) || parsedProbability < 0 || parsedProbability > 100) {
+      return NextResponse.json({ success: false, error: "Valeur de probabilité invalide" }, { status: 400 })
+    }
+
+    // Validate quantity
+    const parsedQuantity = Number(quantity)
+    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+      return NextResponse.json({ success: false, error: "Valeur de quantité invalide" }, { status: 400 })
+    }
+
+    const newPrize = await createPrize(
+      name.trim(),
+      parsedProbability,
+      parsedQuantity,
+      is_active !== undefined ? Boolean(is_active) : true,
+    )
+
+    console.log("Prize created successfully:", newPrize)
+    return NextResponse.json({
+      success: true,
+      prize: newPrize,
+    })
+  } catch (error) {
+    console.error("=== Create Prize Error ===")
+    console.error("Error:", error)
+
+    return NextResponse.json({ success: false, error: "Échec de la création du prix" }, { status: 500 })
   }
 }
