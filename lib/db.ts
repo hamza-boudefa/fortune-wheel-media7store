@@ -143,7 +143,7 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
     console.log("Searching for user with phone:", phone)
     const result = await sql`SELECT * FROM users WHERE phone = ${phone} LIMIT 1`
     console.log("User search result:", result)
-    return result[0] || null
+    return result[0] as User || null
   } catch (error) {
     console.error("Error getting user by phone:", error)
     throw new Error("Échec de la recherche de l'utilisateur")
@@ -163,7 +163,7 @@ export async function createUser(phone: string, firstName: string, lastName: str
       RETURNING *
     `
     console.log("User created successfully:", result[0])
-    return result[0]
+    return result[0] as User
   } catch (error) {
     if (error instanceof Error) {
       if (error.message.includes("unique") || error.message.includes("duplicate")) {
@@ -182,7 +182,7 @@ export async function getActivePrizes(): Promise<Prize[]> {
     console.log("Fetching active prizes...")
     const result = await sql`SELECT * FROM prizes WHERE is_active = true ORDER BY probability DESC`
     console.log("Active prizes fetched:", result.length)
-    return result
+    return result as Prize[]
   } catch (error) {
     console.error("Error getting active prizes:", error)
     throw new Error("Échec de la récupération des prix")
@@ -198,7 +198,7 @@ export async function getAllPrizes(): Promise<Prize[]> {
       "Prize details:",
       result.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity })),
     )
-    return result
+    return result as Prize[]
   } catch (error) {
     console.error("Error getting all prizes:", error)
     throw new Error("Échec de la récupération des prix")
@@ -219,7 +219,7 @@ export async function createPrize(
       RETURNING *
     `
     console.log("Prize created successfully:", result[0])
-    return result[0]
+    return result[0] as Prize
   } catch (error) {
     console.error("Error creating prize:", error)
     throw new Error("Échec de la création du prix")
@@ -334,7 +334,7 @@ export async function addWinner(userId: number, prizeId: number): Promise<Winner
     `
     console.log("Winner added successfully:", result[0])
     console.log("Prize quantity updated:", prizeResult[0].quantity)
-    return result[0]
+    return result[0] as Winner
   } catch (error) {
     console.error("Error adding winner:", error)
     if (error instanceof Error && error.message.includes("Prix non disponible ou quantité épuisée")) {
@@ -356,7 +356,7 @@ export async function getWinnersByPrize(prizeId: number): Promise<Winner[]> {
       ORDER BY w.won_at DESC
     `
     console.log("Winners fetched:", result.length)
-    return result
+    return result as Winner[]
   } catch (error) {
     console.error("Error getting winners by prize:", error)
     throw new Error("Échec de la récupération des gagnants")
@@ -459,7 +459,7 @@ export async function getAvailablePrizes(): Promise<Prize[]> {
       ORDER BY probability DESC
     `
     console.log("Available prizes fetched:", result.length)
-    return result
+    return result as Prize[]  
   } catch (error) {
     console.error("Error getting available prizes:", error)
     throw new Error("Échec de la récupération des prix disponibles")
