@@ -79,29 +79,32 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
     if (prizes.length > 0) {
       const newDisplaySegments: Prize[] = []
       const availablePrizes = [...prizes]
+      const maxSpinAgain = 3 // Maximum 3 spin-again segments
 
-      if (availablePrizes.length >= 7) {
-        newDisplaySegments.push(availablePrizes[0])
-        newDisplaySegments.push(availablePrizes[1])
-        newDisplaySegments.push(spinAgainSegment)
-        newDisplaySegments.push(availablePrizes[2])
-        newDisplaySegments.push(availablePrizes[3])
-        newDisplaySegments.push(spinAgainSegment)
-        newDisplaySegments.push(availablePrizes[4])
-        newDisplaySegments.push(availablePrizes[5])
-        newDisplaySegments.push(spinAgainSegment)
-        newDisplaySegments.push(availablePrizes[6])
-      } else {
-        availablePrizes.forEach((prize, index) => {
-          newDisplaySegments.push(prize)
-          if (index < availablePrizes.length - 1) {
-            newDisplaySegments.push(spinAgainSegment)
-          }
-        })
-        while (newDisplaySegments.length < 8) {
+      // Calculate strategic positions for spin-again segments
+      // Position 1: Top (around 12 o'clock)
+      // Position 2: Bottom left (around 8 o'clock) 
+      // Position 3: Bottom right (around 4 o'clock)
+      const spinAgainPositions = [0, Math.floor(availablePrizes.length * 0.67), Math.floor(availablePrizes.length * 0.33)]
+
+      // Add prizes and spin-again segments at strategic positions
+      availablePrizes.forEach((prize, index) => {
+        newDisplaySegments.push(prize)
+        
+        // Add spin-again segment at strategic positions
+        if (spinAgainPositions.includes(index) && newDisplaySegments.filter(s => s.name === "3awed !").length < maxSpinAgain) {
           newDisplaySegments.push(spinAgainSegment)
         }
+      })
+
+      // Ensure we have at least 8 segments for a good wheel appearance
+      while (newDisplaySegments.length < 8) {
+        newDisplaySegments.push(spinAgainSegment)
       }
+
+      const spinAgainCount = newDisplaySegments.filter(s => s.name === "3awed !").length
+      console.log("Created display segments:", newDisplaySegments.length, "Total prizes:", availablePrizes.length, "Spin-again segments:", spinAgainCount)
+      console.log("Spin-again positions:", spinAgainPositions)
       setDisplaySegments(newDisplaySegments)
     }
   }, [prizes])
@@ -130,6 +133,10 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
       const response = await fetch("/api/prizes")
       const data = await response.json()
       const availablePrizes = data.prizes || []
+      console.log("=== Frontend Prize Fetch ===")
+      console.log("API Response:", data)
+      console.log("Prizes array length:", availablePrizes.length)
+      console.log("All prizes:", availablePrizes)
       setPrizes(availablePrizes)
     } catch (error) {
       console.error("Error fetching available prizes:", error)

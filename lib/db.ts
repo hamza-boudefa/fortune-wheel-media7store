@@ -192,12 +192,18 @@ export async function getActivePrizes(): Promise<Prize[]> {
 export async function getAllPrizes(): Promise<Prize[]> {
   try {
     console.log("Fetching all prizes...")
-    const result = await sql`SELECT * FROM prizes ORDER BY created_at DESC`
+    const result = await sql`SELECT * FROM prizes`
     console.log("All prizes fetched:", result.length)
     console.log(
       "Prize details:",
-      result.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity })),
+      result.map((p) => ({ id: p.id, name: p.name, quantity: p.quantity, is_active: p.is_active })),
     )
+    
+    // Also check total count and active count
+    const totalCount = await sql`SELECT COUNT(*) as count FROM prizes`
+    const activeCount = await sql`SELECT COUNT(*) as count FROM prizes WHERE is_active = true`
+    console.log(`Total prizes in DB: ${totalCount[0].count}, Active prizes: ${activeCount[0].count}`)
+    
     return result as Prize[]
   } catch (error) {
     console.error("Error getting all prizes:", error)
