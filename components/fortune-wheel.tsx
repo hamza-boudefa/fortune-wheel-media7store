@@ -53,6 +53,13 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
   const [playCount, setPlayCount] = useState(0)
   const [showSpinAgain, setShowSpinAgain] = useState(false)
   const [spinAgainMessage, setSpinAgainMessage] = useState("")
+  const [canPlayToday, setCanPlayToday] = useState(true)
+  const [showDailyLimitMessage, setShowDailyLimitMessage] = useState(false)
+  const [dailyPlayStatus, setDailyPlayStatus] = useState<{
+    canPlay: boolean
+    message: string
+    nextPlayTime?: string
+  } | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const celebrationRef = useRef<HTMLCanvasElement>(null)
@@ -72,6 +79,7 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
   useEffect(() => {
     fetchAvailablePrizes()
     fetchPlayCount()
+    checkCanPlayToday()
     initializeAudio()
   }, [userId])
 
@@ -153,6 +161,28 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
       setPlayCount(playCountValue)
     } catch (error) {
       console.error("Error fetching play count:", error)
+    }
+  }
+
+  const checkCanPlayToday = async () => {
+    try {
+      const response = await fetch("/api/check-can-play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setDailyPlayStatus(data)
+        setCanPlayToday(data.canPlay)
+        
+        if (!data.canPlay) {
+          setShowDailyLimitMessage(true)
+        }
+      }
+    } catch (error) {
+      console.error("Error checking if user can play today:", error)
     }
   }
 
@@ -600,11 +630,76 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
       ctx.fillStyle = isRedSegment ? "#FFFFFF" : "#DC2626"
       
       const isSpinAgain = segment.name === "3awed !"
-      const fontSize = isSpinAgain ? 16 : segment.name.length > 15 ? 11 : 14
-      ctx.font = `${isSpinAgain ? "bold" : "500"} ${fontSize}px 'Inter', 'Segoe UI', system-ui, sans-serif`
       
-      // Calculate text wrapping
-      const maxWidth = radius * 0.6 // Maximum width for text
+      // Advanced adaptive font sizing based on text length and complexity
+      let fontSize: number
+      let maxWidth: number
+      let textRadius: number
+      let fontWeight: string
+      
+      if (isSpinAgain) {
+        // "3awed!" segments always get prominent display
+        fontSize = 16
+        maxWidth = radius * 0.7
+        textRadius = radius * 0.7
+        fontWeight = "bold"
+      } else {
+        // Dynamic sizing based on text characteristics
+        const textLength = segment.name.length
+        const wordCount = segment.name.split(' ').length
+        
+        if (textLength <= 8) {
+          // Very short names (e.g., "Tablet", "Phone")
+          fontSize = 16
+          maxWidth = radius * 0.75
+          textRadius = radius * 0.75
+          fontWeight = "600"
+        } else if (textLength <= 12) {
+          // Short names (e.g., "Power Bank", "Téléphone")
+          fontSize = 15
+          maxWidth = radius * 0.7
+          textRadius = radius * 0.7
+          fontWeight = "500"
+        } else if (textLength <= 18) {
+          // Medium names (e.g., "Support de voiture")
+          fontSize = 13
+          maxWidth = radius * 0.65
+          textRadius = radius * 0.65
+          fontWeight = "500"
+        } else if (textLength <= 25) {
+          // Long names (e.g., "Support de voiture pour téléphone")
+          fontSize = 11
+          maxWidth = radius * 0.6
+          textRadius = radius * 0.6
+          fontWeight = "400"
+        } else if (textLength <= 35) {
+          // Very long names
+          fontSize = 10
+          maxWidth = radius * 0.55
+          textRadius = radius * 0.55
+          fontWeight = "400"
+        } else {
+          // Extremely long names
+          fontSize = 9
+          maxWidth = radius * 0.5
+          textRadius = radius * 0.5
+          fontWeight = "400"
+        }
+        
+        // Adjust for multi-word names to prevent overcrowding
+        if (wordCount > 2 && textLength > 15) {
+          fontSize = Math.max(fontSize - 1, 8) // Reduce font size but not below 8px
+          maxWidth = maxWidth * 0.85 // Reduce max width more aggressively
+        }
+        if (wordCount > 4 && textLength > 25) {
+          fontSize = Math.max(fontSize - 1, 7) // Further reduce for very complex names
+          maxWidth = maxWidth * 0.8 // Reduce max width even more
+        }
+      }
+      
+      ctx.font = `${fontWeight} ${fontSize}px 'Inter', 'Segoe UI', system-ui, sans-serif`
+      
+      // Enhanced text wrapping with better word handling
       const words = segment.name.split(' ')
       const lines: string[] = []
       let currentLine = ''
@@ -624,7 +719,7 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
         lines.push(currentLine)
       }
       
-      // If text is still too long, break it by characters
+      // If text is still too long, break it by characters with better logic
       if (lines.length === 1 && ctx.measureText(lines[0]).width > maxWidth) {
         const text = lines[0]
         lines.length = 0
@@ -646,17 +741,36 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
         }
       }
       
-      // Draw wrapped text
-      const lineHeight = fontSize * 1.2
+      // Enhanced text positioning with better spacing
+      const lineHeight = fontSize * 1.3 // Balanced line height for better readability
       const totalHeight = lines.length * lineHeight
       const startY = -(totalHeight / 2) + (lineHeight / 2)
       
-      const textRadius = segment.name.length > 15 ? radius * 0.65 : radius * 0.75
-      
+      // Draw text with enhanced positioning and fallback handling
       lines.forEach((line, index) => {
         const y = startY + (index * lineHeight)
-        ctx.fillText(line, textRadius, y)
+        
+        // Ensure text fits within segment bounds
+        const lineWidth = ctx.measureText(line).width
+        if (lineWidth > maxWidth) {
+          // If line is still too wide, truncate it
+          let truncatedLine = line
+          while (ctx.measureText(truncatedLine + '...').width > maxWidth && truncatedLine.length > 3) {
+            truncatedLine = truncatedLine.slice(0, -1)
+          }
+          ctx.fillText(truncatedLine + '...', textRadius, y)
+        } else {
+          ctx.fillText(line, textRadius, y)
+        }
       })
+      
+      // Add subtle text shadow for better readability on both red and white segments
+      if (lines.length > 0) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.1)"
+        ctx.shadowBlur = 1
+        ctx.shadowOffsetX = 0.5
+        ctx.shadowOffsetY = 0.5
+      }
       
       ctx.restore()
     })
@@ -684,6 +798,13 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
 
   const spinWheel = async () => {
     if (isSpinning || displaySegments.length === 0) return
+    
+    // Check if user can play today
+    if (!canPlayToday) {
+      setShowDailyLimitMessage(true)
+      return
+    }
+    
     playClickSound()
     setIsSpinning(true)
     setShowCelebration(false)
@@ -749,6 +870,42 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
         <div className="text-center text-white">
           <Sparkles className="w-16 h-16 mx-auto mb-4 animate-spin" />
           <p className="text-2xl font-medium font-['Inter']">Chargement des prix...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show daily limit message if user cannot play today
+  if (showDailyLimitMessage && dailyPlayStatus && !dailyPlayStatus.canPlay) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
+        <div className="text-center text-white max-w-2xl mx-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-10 border border-white/20 shadow-2xl">
+            <h1 className="text-4xl font-bold text-red-600 mb-6">Limite Quotidienne Atteinte</h1>
+            <div className="text-red-700 text-lg mb-6">
+              {dailyPlayStatus.message}
+            </div>
+            {dailyPlayStatus.nextPlayTime && (
+              <div className="bg-red-50 rounded-xl p-6 mb-6 border border-red-200">
+                <p className="text-red-800 font-medium">
+                  Prochaine disponibilité: {new Date(dailyPlayStatus.nextPlayTime).toLocaleString('fr-FR', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            )}
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+            >
+              Actualiser
+            </button>
+          </div>
         </div>
       </div>
     )

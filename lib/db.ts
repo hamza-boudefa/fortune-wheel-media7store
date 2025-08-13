@@ -442,6 +442,57 @@ export async function getUserPlayCount(userId: number): Promise<number> {
   }
 }
 
+export async function canUserPlayToday(userId: number): Promise<{ canPlay: boolean; message: string; nextPlayTime?: string }> {
+  try {
+    // Get user's last win date
+    const result = await sql`
+      SELECT won_at FROM winners 
+      WHERE user_id = ${userId} 
+      ORDER BY won_at DESC 
+      LIMIT 1
+    `
+    
+    if (result.length === 0) {
+      // User never won before, can play
+      return {
+        canPlay: true,
+        message: "Vous pouvez jouer aujourd'hui !"
+      }
+    }
+    
+    const lastWinDate = new Date(result[0].won_at)
+    const today = new Date()
+    
+    // Check if last win was today
+    const isLastWinToday = lastWinDate.toDateString() === today.toDateString()
+    
+    if (isLastWinToday) {
+      // User won today, cannot play until tomorrow 8 AM
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(8, 0, 0, 0)
+      
+      return {
+        canPlay: false,
+        message: "Vous avez déjà joué aujourd'hui. Revenez demain à 8h00 pour une nouvelle chance !",
+        nextPlayTime: tomorrow.toISOString()
+      }
+    } else {
+      // User can play today
+      return {
+        canPlay: true,
+        message: "Vous pouvez jouer aujourd'hui !"
+      }
+    }
+  } catch (error) {
+    console.error("Error checking if user can play today:", error)
+    return {
+      canPlay: false,
+      message: "Erreur lors de la vérification. Veuillez réessayer."
+    }
+  }
+}
+
 export async function getAdminStats(): Promise<AdminStats> {
   try {
     console.log("Fetching admin statistics...")
