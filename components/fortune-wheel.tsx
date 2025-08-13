@@ -885,20 +885,7 @@ export default function FortuneWheel({ userId, onWin }: FortuneWheelProps) {
             <div className="text-red-700 text-lg mb-6">
               {dailyPlayStatus.message}
             </div>
-            {dailyPlayStatus.nextPlayTime && (
-              <div className="bg-red-50 rounded-xl p-6 mb-6 border border-red-200">
-                <p className="text-red-800 font-medium">
-                  Prochaine disponibilité: {new Date(dailyPlayStatus.nextPlayTime).toLocaleString('fr-FR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
-            )}
+       
             <button
               onClick={() => window.location.reload()}
               className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
